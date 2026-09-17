@@ -67,9 +67,13 @@ export async function deleteQuestion(id: string): Promise<void> {
 }
 
 // ---- Modules (folders) ----
+// Tolerante: si la tabla `modules` aún no existe (migración pendiente), devuelve [] en vez de romper la carga.
 export async function fetchModules(): Promise<Module[]> {
   const { data, error } = await supabase.from('modules').select('*').order('position', { ascending: true }).order('created_at', { ascending: true });
-  if (error) throw error;
+  if (error) {
+    console.warn('No se pudieron cargar los módulos (¿falta ejecutar la migración?):', error.message);
+    return [];
+  }
   return (data as Module[]) ?? [];
 }
 

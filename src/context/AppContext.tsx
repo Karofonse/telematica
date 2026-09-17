@@ -25,7 +25,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   const refresh = useCallback(async () => {
-    const [q, s, a, m] = await Promise.all([db.fetchQuestions(), db.fetchAppState(), db.fetchAchievements(), db.fetchModules()]);
+    const [q, s, a, m] = await Promise.all([db.fetchQuestions(), db.fetchAppState(), db.fetchAchievements(), db.fetchModules().catch(() => [] as Module[])]);
     setQuestions(q);
     setModules(m);
     setState(s);
