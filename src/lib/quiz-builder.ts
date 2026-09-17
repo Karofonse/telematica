@@ -17,7 +17,7 @@ export function isMultipleChoice(q: Question): boolean {
 
 // Build a quiz of `count` questions based on the mode.
 // Returns array of questions (not yet shuffled options).
-export function buildQuiz(allQuestions: Question[], mode: QuizMode, count: number, topic?: string, group?: number): Question[] {
+export function buildQuiz(allQuestions: Question[], mode: QuizMode, count: number, topic?: string, group?: number, moduleId?: string): Question[] {
   if (allQuestions.length === 0) return [];
 
   let pool: Question[];
@@ -25,10 +25,9 @@ export function buildQuiz(allQuestions: Question[], mode: QuizMode, count: numbe
   if (mode === 'group' && group !== undefined) {
     pool = allQuestions.filter((q) => q.group_number === group);
     return shuffle(pool);
-  } else if (mode === 'module' && group !== undefined) {
-    // group here represents the module: 1 = mod 14&15 (groups 1-6), 2 = linux (groups 7-8)
-    const groups = group === 1 ? [1,2,3,4,5,6] : group === 2 ? [7,8,9,10,11,12,13,14,15,16] : group === 3 ? [17,18,19,20,21] : [];
-    pool = allQuestions.filter((q) => groups.includes(q.group_number));
+  } else if (mode === 'module' && moduleId) {
+    // Final exam of a whole module (folder): all its questions shuffled
+    pool = allQuestions.filter((q) => q.module_id === moduleId);
   } else if (mode === 'topic' && topic) {
     pool = allQuestions.filter((q) => q.topic.toLowerCase() === topic.toLowerCase());
   } else if (mode === 'errors') {

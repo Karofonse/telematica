@@ -18,6 +18,7 @@ function AppContent() {
   const [quizMode, setQuizMode] = useState<QuizMode>('smart');
   const [quizTopic, setQuizTopic] = useState<string | undefined>(undefined);
   const [quizGroup, setQuizGroup] = useState<number | undefined>(undefined);
+  const [quizModuleId, setQuizModuleId] = useState<string | undefined>(undefined);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [editQuestion, setEditQuestion] = useState<Question | null>(null);
 
@@ -37,10 +38,11 @@ function AppContent() {
     setRoute(r);
   }, []);
 
-  const startQuiz = useCallback((mode: QuizMode, topic?: string, group?: number) => {
+  const startQuiz = useCallback((mode: QuizMode, topic?: string, group?: number, moduleId?: string) => {
     setQuizMode(mode);
     setQuizTopic(topic);
     setQuizGroup(group);
+    setQuizModuleId(moduleId);
     setQuizResult(null);
     setRoute('quiz');
   }, []);
@@ -80,12 +82,13 @@ function AppContent() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {route === 'dashboard' && <Dashboard onNavigate={navigate} onStartQuiz={(m, g) => startQuiz(m, undefined, g)} />}
+              {route === 'dashboard' && <Dashboard onNavigate={navigate} onStartQuiz={(m, g, mid) => startQuiz(m, undefined, g, mid)} />}
               {route === 'quiz' && (
                 <QuizScreen
                   mode={quizMode}
                   topic={quizTopic}
                   group={quizGroup}
+                  moduleId={quizModuleId}
                   onNavigate={navigate}
                   onQuizComplete={handleQuizComplete}
                 />
@@ -94,7 +97,7 @@ function AppContent() {
                 <Results
                   result={quizResult}
                   onNavigate={navigate}
-                  onRetry={() => startQuiz(quizMode, quizTopic, quizGroup)}
+                  onRetry={() => startQuiz(quizMode, quizTopic, quizGroup, quizModuleId)}
                   onReviewErrors={() => startQuiz('errors')}
                 />
               )}

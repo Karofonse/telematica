@@ -14,6 +14,7 @@ export interface Question {
   explanation: string;
   difficulty: Difficulty;
   group_number: number;
+  module_id: string | null;
   created_at: string;
   correct_count: number;
   total_count: number;
@@ -21,6 +22,16 @@ export interface Question {
   last_answered_at: string | null;
   next_review_at: string;
   interval_days: number;
+}
+
+export interface Module {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  position: number;
+  created_at: string;
 }
 
 export type QuizMode = 'smart' | 'errors' | 'topic' | 'all' | 'group' | 'module';

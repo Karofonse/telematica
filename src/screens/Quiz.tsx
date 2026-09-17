@@ -16,6 +16,7 @@ interface QuizScreenProps {
   mode: QuizMode;
   topic?: string;
   group?: number;
+  moduleId?: string;
   onNavigate: (r: Route) => void;
   onQuizComplete: (result: QuizResult) => void;
 }
@@ -39,7 +40,7 @@ const OPTION_STYLES = [
   { bg: 'from-cyan-500 to-cyan-600', ring: 'ring-cyan-400', text: 'F' },
 ];
 
-export function QuizScreen({ mode, topic, group, onNavigate, onQuizComplete }: QuizScreenProps) {
+export function QuizScreen({ mode, topic, group, moduleId, onNavigate, onQuizComplete }: QuizScreenProps) {
   const { questions, settings, state } = useApp();
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -70,7 +71,7 @@ export function QuizScreen({ mode, topic, group, onNavigate, onQuizComplete }: Q
       return;
     }
     const count = (mode === 'all' || mode === 'module') ? questions.length : settings.defaultQuestionCount;
-    const built = buildQuiz(questions, mode, count, topic, group);
+    const built = buildQuiz(questions, mode, count, topic, group, moduleId);
     if (built.length === 0) {
       setReady(false);
       return;

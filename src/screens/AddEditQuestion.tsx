@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, Save, ListChecks, CircleDot, Plus, Trash2, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Check, Save, ListChecks, CircleDot, Plus, Trash2, Image as ImageIcon, X, FolderPlus, Folder } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { ModuleForm } from '@/components/ModuleForm';
+import { modulePartOptions, moduleColor, moduleIcon } from '@/lib/modules';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useApp } from '@/context/AppContext';
@@ -28,8 +31,19 @@ const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 6;
 
 export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
-  const { refresh } = useApp();
+  const { refresh, modules, questions } = useApp();
   const isEdit = !!editQuestion;
+
+  // ---- Module (folder) + part ----
+  const [moduleId, setModuleId] = useState<string>(() => {
+    try { return sessionStorage.getItem('sq_preselect_module') ?? ''; } catch { return ''; }
+  });
+  useEffect(() => {
+    try { sessionStorage.removeItem('sq_preselect_module'); } catch { /* ignore */ }
+  }, []);
+  // '' = new part, otherwise the existing group_number as string
+  const [partChoice, setPartChoice] = useState<string>('');
+  const [moduleFormOpen, setModuleFormOpen] = useState(false);
 
   const [question, setQuestion] = useState('');
   const [questionImage, setQuestionImage] = useState('');
@@ -47,6 +61,8 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
 
   useEffect(() => {
     if (editQuestion) {
+      setModuleId(editQuestion.module_id ?? '');
+      setPartChoice(String(editQuestion.group_number));
       setQuestion(editQuestion.question);
       setQuestionImage(editQuestion.question_image ?? '');
       setTopic(editQuestion.topic);
@@ -69,6 +85,31 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
 
   const filledOptions = options.filter((o) => o.trim());
   const canSave = question.trim() && topic.trim() && filledOptions.length >= MIN_OPTIONS && (multiAnswer ? correctIndices.length >= 1 : true);
+
+  const selectedModule = modules.find((m) => m.id === moduleId) ?? null;
+  const partOptions = moduleId ? modulePartOptions(questions, moduleId) : [];
+  const PART_SIZE = 10;
+  const lastPart = partOptions[partOptions.length - 1];
+  const lastPartFull = lastPart ? lastPart.count >= PART_SIZE : true;
+
+  // When the module changes (and we're not editing that same question), pick a sensible default part:
+  // the last part if it still has room, otherwise a new part.
+  useEffect(() => {
+    if (editQuestion && editQuestion.module_id === moduleId) {
+      setPartChoice(String(editQuestion.group_number));
+      return;
+    }
+    const opts = moduleId ? modulePartOptions(questions, moduleId) : [];
+    const last = opts[opts.length - 1];
+    setPartChoice(last && last.count < PART_SIZE ? String(last.group) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduleId]);
+
+  // Auto-fill topic with the module name when empty
+  useEffect(() => {
+    if (selectedModule && !topic.trim() && !isEdit) setTopic(selectedModule.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModule?.id]);
 
   const addOption = () => {
     if (options.length >= MAX_OPTIONS) return;
@@ -115,8 +156,19 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
     try {
       const finalCorrectIndices = multiAnswer ? correctIndices : [correctIndex];
       const finalCorrectIndex = finalCorrectIndices[0] ?? 0;
+      const finalModuleId = moduleId || null;
+      let groupNumber: number;
+      if (partChoice) {
+        groupNumber = parseInt(partChoice, 10);
+      } else if (finalModuleId) {
+        groupNumber = await db.nextGroupNumber();
+      } else {
+        groupNumber = editQuestion?.group_number ?? 1;
+      }
       if (isEdit && editQuestion) {
         await db.updateQuestion(editQuestion.id, {
+          module_id: finalModuleId,
+          group_number: groupNumber,
           question: question.trim(),
           question_image: questionImage,
           topic: topic.trim(),
@@ -130,6 +182,8 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
         });
       } else {
         await db.createQuestion({
+          module_id: finalModuleId,
+          group_number: groupNumber,
           question: question.trim(),
           question_image: questionImage,
           topic: topic.trim(),
@@ -160,8 +214,80 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
         <h1 className="text-2xl md:text-3xl font-display font-bold text-white">{isEdit ? 'Editar pregunta' : 'Nueva pregunta'}</h1>
       </div>
 
-      {/* Question */}
+      {/* Module + part */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <label className="text-sm font-semibold text-slate-300 flex items-center gap-1.5"><Folder className="w-4 h-4" /> Módulo (carpeta)</label>
+            <button onClick={() => setModuleFormOpen(true)} className="text-xs font-semibold text-brand-400 hover:underline flex items-center gap-1">
+              <FolderPlus className="w-3.5 h-3.5" /> Crear módulo nuevo
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setModuleId('')}
+              className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${moduleId === '' ? 'bg-slate-600 text-white ring-2 ring-slate-400/50' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}
+            >
+              Sin módulo
+            </button>
+            {modules.map((m) => {
+              const c = moduleColor(m.color);
+              const Icon = moduleIcon(m.icon);
+              const active = moduleId === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setModuleId(m.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${active ? `bg-gradient-to-r ${c.gradient} text-white shadow-lg` : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}
+                >
+                  <Icon className="w-4 h-4" /> {m.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {moduleId && (
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-2">Parte dentro del módulo</label>
+              <div className="flex flex-wrap gap-2">
+                {partOptions.map((p) => {
+                  const active = partChoice === String(p.group);
+                  const full = p.count >= PART_SIZE && !(editQuestion && editQuestion.group_number === p.group);
+                  return (
+                    <button
+                      key={p.group}
+                      type="button"
+                      onClick={() => setPartChoice(String(p.group))}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${active ? 'bg-brand-500 text-white' : full ? 'bg-slate-800/60 text-slate-500 hover:bg-slate-700' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}
+                    >
+                      {p.label} <span className="opacity-70">({p.count})</span>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setPartChoice('')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${partChoice === '' ? 'bg-brand-500 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Nueva parte {partOptions.length + 1}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                {partChoice === ''
+                  ? 'Se creará una parte nueva con esta pregunta.'
+                  : lastPartFull && partChoice === String(lastPart?.group)
+                    ? `Esta parte ya tiene ${lastPart?.count} preguntas (se recomiendan ${PART_SIZE} por parte).`
+                    : `La pregunta se agregará a esta parte.`}
+              </p>
+            </div>
+          )}
+        </Card>
+      </motion.div>
+
+      {/* Question */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }}>
         <Card className="p-5 space-y-4">
           <div>
             <label className="block text-sm font-semibold text-slate-300 mb-2">Pregunta *</label>
@@ -366,6 +492,19 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
       {error && (
         <div className="p-3 rounded-xl bg-error-500/15 border border-error-500/30 text-error-300 text-sm">{error}</div>
       )}
+
+      <AnimatePresence>
+        {moduleFormOpen && (
+          <ModuleForm
+            onClose={() => setModuleFormOpen(false)}
+            onSaved={async (m) => {
+              setModuleFormOpen(false);
+              await refresh();
+              setModuleId(m.id);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="flex gap-3 pb-8">
         <Button variant="ghost" size="lg" className="flex-1" onClick={() => onNavigate('bank')}>Cancelar</Button>

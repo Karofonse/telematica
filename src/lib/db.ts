@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Question, QuizSession, SessionAnswer, AppState, AppSettings, Achievement, QuizMode, Difficulty } from './types';
+import type { Question, QuizSession, SessionAnswer, AppState, AppSettings, Achievement, QuizMode, Difficulty, Module } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import { updateSpacedRepetition, updateStreak, levelForXp } from './spaced-repetition';
 import { masteryLevel } from './spaced-repetition';
@@ -23,6 +23,7 @@ export async function createQuestion(input: {
   explanation: string;
   difficulty: Difficulty;
   group_number?: number;
+  module_id?: string | null;
 }): Promise<Question> {
   const { data: existing } = await supabase.from('questions').select('qid').order('created_at', { ascending: true });
   const maxNum = (existing ?? []).reduce((max, row: any) => {
@@ -46,6 +47,7 @@ export async function createQuestion(input: {
       explanation: input.explanation.trim(),
       difficulty: input.difficulty,
       group_number: input.group_number ?? 1,
+      module_id: input.module_id ?? null,
     })
     .select()
     .single();
@@ -62,6 +64,50 @@ export async function updateQuestion(id: string, patch: Partial<Question>): Prom
 export async function deleteQuestion(id: string): Promise<void> {
   const { error } = await supabase.from('questions').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ---- Modules (folders) ----
+export async function fetchModules(): Promise<Module[]> {
+  const { data, error } = await supabase.from('modules').select('*').order('position', { ascending: true }).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data as Module[]) ?? [];
+}
+
+export async function createModule(input: { name: string; description?: string; color?: string; icon?: string }): Promise<Module> {
+  const { data: existing } = await supabase.from('modules').select('position');
+  const maxPos = (existing ?? []).reduce((m, r: any) => Math.max(m, r.position ?? 0), 0);
+  const { data, error } = await supabase
+    .from('modules')
+    .insert({
+      name: input.name.trim(),
+      description: (input.description ?? '').trim(),
+      color: input.color ?? 'brand',
+      icon: input.icon ?? 'folder',
+      position: maxPos + 1,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Module;
+}
+
+export async function updateModule(id: string, patch: Partial<Module>): Promise<Module> {
+  const { data, error } = await supabase.from('modules').update(patch).eq('id', id).select().single();
+  if (error) throw error;
+  return data as Module;
+}
+
+// Deletes the module; its questions stay in the bank without module (module_id = null).
+export async function deleteModule(id: string): Promise<void> {
+  const { error } = await supabase.from('modules').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// Next free "part" number (group_number is global across modules)
+export async function nextGroupNumber(): Promise<number> {
+  const { data } = await supabase.from('questions').select('group_number').order('group_number', { ascending: false }).limit(1);
+  const max = data && data.length > 0 ? (data[0] as any).group_number ?? 0 : 0;
+  return max + 1;
 }
 
 // ---- Quiz sessions & answers ----
@@ -239,14 +285,15 @@ export async function fetchAllSessions(): Promise<QuizSession[]> {
 
 // ---- Import / Export ----
 export async function exportData(): Promise<string> {
-  const [questions, sessions, answers, state, achievements] = await Promise.all([
+  const [questions, sessions, answers, state, achievements, modules] = await Promise.all([
     fetchQuestions(),
     fetchAllSessions(),
     fetchAllAnswers(),
     fetchAppState(),
     fetchAchievements(),
+    fetchModules(),
   ]);
-  return JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), questions, sessions, answers, state, achievements }, null, 2);
+  return JSON.stringify({ version: 3, exportedAt: new Date().toISOString(), modules, questions, sessions, answers, state, achievements }, null, 2);
 }
 
 export async function importData(json: string): Promise<void> {
@@ -257,7 +304,12 @@ export async function importData(json: string): Promise<void> {
   await supabase.from('quiz_sessions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await supabase.from('achievements').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await supabase.from('questions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('modules').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
+  if (parsed.modules?.length > 0) {
+    const { error } = await supabase.from('modules').insert(parsed.modules);
+    if (error) throw error;
+  }
   if (parsed.questions.length > 0) {
     const { error } = await supabase.from('questions').insert(parsed.questions);
     if (error) throw error;
