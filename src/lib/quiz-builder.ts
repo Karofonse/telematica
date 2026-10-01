@@ -15,16 +15,22 @@ export function isMultipleChoice(q: Question): boolean {
   return Array.isArray(q.correct_indices) && q.correct_indices.length > 1;
 }
 
+function byQid(a: Question, b: Question): number {
+  return a.qid.localeCompare(b.qid);
+}
+
 // Build a quiz of `count` questions based on the mode.
+// `ordered`: si es true (módulo marcado como `ordered`), las preguntas de 'group'/'module'
+// se devuelven en orden de qid en vez de mezcladas al azar.
 // Returns array of questions (not yet shuffled options).
-export function buildQuiz(allQuestions: Question[], mode: QuizMode, count: number, topic?: string, group?: number, moduleGroups?: number[]): Question[] {
+export function buildQuiz(allQuestions: Question[], mode: QuizMode, count: number, topic?: string, group?: number, moduleGroups?: number[], ordered?: boolean): Question[] {
   if (allQuestions.length === 0) return [];
 
   let pool: Question[];
 
   if (mode === 'group' && group !== undefined) {
     pool = allQuestions.filter((q) => q.group_number === group);
-    return shuffle(pool);
+    return ordered ? [...pool].sort(byQid) : shuffle(pool);
   } else if (mode === 'module' && moduleGroups) {
     // Final exam of a whole module (folder): all its questions shuffled
     pool = allQuestions.filter((q) => moduleGroups.includes(q.group_number));
@@ -65,6 +71,7 @@ export function buildQuiz(allQuestions: Question[], mode: QuizMode, count: numbe
   }
 
   if (mode !== 'smart') {
+    if (ordered && mode === 'module') return [...pool].sort(byQid).slice(0, count);
     return shuffle(pool).slice(0, count);
   }
 

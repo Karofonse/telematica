@@ -72,7 +72,12 @@ export function QuizScreen({ mode, topic, group, moduleId, onNavigate, onQuizCom
     }
     const count = (mode === 'all' || mode === 'module') ? questions.length : settings.defaultQuestionCount;
     const moduleGroups = moduleId ? modules.find((m) => m.id === moduleId)?.groups ?? [] : undefined;
-    const built = buildQuiz(questions, mode, count, topic, group, moduleGroups);
+    const owningModule = moduleId
+      ? modules.find((m) => m.id === moduleId)
+      : group !== undefined
+        ? modules.find((m) => m.groups.includes(group))
+        : undefined;
+    const built = buildQuiz(questions, mode, count, topic, group, moduleGroups, owningModule?.ordered);
     if (built.length === 0) {
       setReady(false);
       return;

@@ -34,6 +34,8 @@ export interface Module {
   position: number;
   groups: number[];
   created_at: string;
+  // Si es true, sus quizzes muestran las preguntas en orden fijo (por qid) en vez de al azar.
+  ordered?: boolean;
 }
 
 export type QuizMode = 'smart' | 'errors' | 'topic' | 'all' | 'group' | 'module';

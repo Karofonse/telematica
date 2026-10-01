@@ -138,7 +138,7 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
                 </motion.div>
                 <div>
                   <div className="font-display font-bold text-white text-lg">Quiz {module.name}</div>
-                  <div className="text-sm text-slate-300">Examen final con todas las {total} preguntas revueltas</div>
+                  <div className="text-sm text-slate-300">Examen final con todas las {total} preguntas {module.ordered ? 'en orden' : 'revueltas'}</div>
                 </div>
               </div>
               <div className={`flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r ${c.gradient} text-white font-semibold text-sm shadow-lg`}>
