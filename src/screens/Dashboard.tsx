@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ModuleForm } from '@/components/ModuleForm';
 import { levelProgress } from '@/lib/spaced-repetition';
-import { moduleColor, moduleIcon, modulePartStats, moduleQuestions, type PartStats } from '@/lib/modules';
+import { moduleColor, moduleIcon, modulePartStats, moduleQuestions, orphanQuestions, type PartStats } from '@/lib/modules';
 import type { Route } from '@/components/NavBar';
 import type { QuizMode, Module } from '@/lib/types';
 import { playClick } from '@/lib/sound';
@@ -18,7 +18,7 @@ interface DashboardProps {
 }
 
 function PartCard({ part, gradient, accentText, bar, delay, onStart }: { part: PartStats; gradient: string; accentText: string; bar: string; delay: number; onStart: () => void }) {
-  const pct = part.total > 0 ? Math.round((part.mastered / part.total) * 100) : 0;
+  const pct = part.progress;
   const allMastered = part.mastered === part.total && part.total > 0;
   const hasProgress = part.answered > 0;
   return (
@@ -38,7 +38,7 @@ function PartCard({ part, gradient, accentText, bar, delay, onStart }: { part: P
         </div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-slate-400">{part.mastered} / {part.total} dominadas</span>
-          <span className="text-xs font-semibold text-slate-300">{pct}%</span>
+          <span className="text-xs font-semibold text-slate-300">{pct}% avance</span>
         </div>
         <ProgressBar
           value={pct}
@@ -159,11 +159,11 @@ export function Dashboard({ onNavigate, onStartQuiz }: DashboardProps) {
 
   const partsByModule = useMemo(() => {
     const map: Record<string, PartStats[]> = {};
-    for (const m of modules) map[m.id] = modulePartStats(questions, m.id);
+    for (const m of modules) map[m.id] = modulePartStats(questions, m);
     return map;
   }, [questions, modules]);
 
-  const orphans = useMemo(() => moduleQuestions(questions, null), [questions]);
+  const orphans = useMemo(() => orphanQuestions(questions, modules), [questions, modules]);
 
   const totals = useMemo(() => {
     const mastered = questions.filter((q) => q.consecutive_correct >= 3).length;
@@ -328,7 +328,7 @@ export function Dashboard({ onNavigate, onStartQuiz }: DashboardProps) {
         {formOpen && (
           <ModuleForm
             module={editing}
-            questionCount={editing ? moduleQuestions(questions, editing.id).length : 0}
+            questionCount={editing ? moduleQuestions(questions, editing).length : 0}
             onClose={closeForm}
             onSaved={async () => { closeForm(); await refresh(); }}
             onDeleted={async () => { closeForm(); await refresh(); }}

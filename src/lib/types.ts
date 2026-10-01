@@ -14,7 +14,6 @@ export interface Question {
   explanation: string;
   difficulty: Difficulty;
   group_number: number;
-  module_id: string | null;
   created_at: string;
   correct_count: number;
   total_count: number;
@@ -24,6 +23,8 @@ export interface Question {
   interval_days: number;
 }
 
+// Un módulo (carpeta) agrupa "partes" = números de grupo (group_number) de las preguntas.
+// Se guarda dentro de app_state.settings.modules (sin tablas nuevas).
 export interface Module {
   id: string;
   name: string;
@@ -31,6 +32,7 @@ export interface Module {
   color: string;
   icon: string;
   position: number;
+  groups: number[];
   created_at: string;
 }
 
@@ -69,6 +71,7 @@ export interface AppSettings {
   defaultQuestionCount: number;
   repetitionIntensity: 'gentle' | 'normal' | 'aggressive';
   theme: 'dark' | 'light';
+  modules?: Module[];
 }
 
 export interface AppState {

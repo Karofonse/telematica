@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { masteryLevel, masteryColor, masteryLabel } from '@/lib/spaced-repetition';
 import { isMultipleChoice } from '@/lib/quiz-builder';
-import { partLabel } from '@/lib/modules';
+import { partLabel, findModuleForQuestion } from '@/lib/modules';
 import * as db from '@/lib/db';
 import { playClick } from '@/lib/sound';
 import type { Question } from '@/lib/types';
@@ -43,8 +43,8 @@ export function QuestionBank({ onNavigate, onEdit }: BankProps) {
         q.options.some((o) => o.toLowerCase().includes(s)),
       );
     }
-    if (moduleFilter === '__none__') result = result.filter((q) => !q.module_id);
-    else if (moduleFilter) result = result.filter((q) => q.module_id === moduleFilter);
+    if (moduleFilter === '__none__') result = result.filter((q) => !findModuleForQuestion(modules, q));
+    else if (moduleFilter) result = result.filter((q) => findModuleForQuestion(modules, q)?.id === moduleFilter);
     if (topicFilter) result = result.filter((q) => q.topic === topicFilter);
     if (filterMode === 'new') result = result.filter((q) => q.total_count === 0);
     if (filterMode === 'weak') result = result.filter((q) => ['weak', 'none'].includes(masteryLevel(q)));
@@ -52,9 +52,7 @@ export function QuestionBank({ onNavigate, onEdit }: BankProps) {
     if (filterMode === 'correct') result = result.filter((q) => q.total_count > 0 && q.correct_count === q.total_count);
     if (filterMode === 'incorrect') result = result.filter((q) => q.total_count > 0 && q.correct_count < q.total_count);
     return result;
-  }, [questions, search, filterMode, topicFilter, moduleFilter]);
-
-  const moduleName = (id: string | null) => modules.find((m) => m.id === id)?.name ?? null;
+  }, [questions, search, filterMode, topicFilter, moduleFilter, modules]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -206,8 +204,8 @@ export function QuestionBank({ onNavigate, onEdit }: BankProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-bold text-slate-500">{q.qid}</span>
-                        {moduleName(q.module_id) && (
-                          <span className="px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-300 text-xs">{moduleName(q.module_id)} · {partLabel(questions, q)}</span>
+                        {findModuleForQuestion(modules, q) && (
+                          <span className="px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-300 text-xs">{findModuleForQuestion(modules, q)!.name} · {partLabel(modules, q)}</span>
                         )}
                         <span className="px-2 py-0.5 rounded-md bg-brand-500/15 text-brand-300 text-xs">{q.topic}</span>
                         {q.subtopic && <span className="px-2 py-0.5 rounded-md bg-slate-700/50 text-slate-400 text-xs">{q.subtopic}</span>}

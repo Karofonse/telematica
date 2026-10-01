@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Check, Save, ListChecks, CircleDot, Plus, Trash2, Image as ImageIcon, X, FolderPlus, Folder } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { ModuleForm } from '@/components/ModuleForm';
-import { modulePartOptions, moduleColor, moduleIcon } from '@/lib/modules';
+import { modulePartOptions, moduleColor, moduleIcon, findModuleForQuestion } from '@/lib/modules';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useApp } from '@/context/AppContext';
@@ -61,7 +61,7 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
 
   useEffect(() => {
     if (editQuestion) {
-      setModuleId(editQuestion.module_id ?? '');
+      setModuleId(findModuleForQuestion(modules, editQuestion)?.id ?? '');
       setPartChoice(String(editQuestion.group_number));
       setQuestion(editQuestion.question);
       setQuestionImage(editQuestion.question_image ?? '');
@@ -81,13 +81,14 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
         setCorrectIndices([editQuestion.correct_index]);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editQuestion]);
 
   const filledOptions = options.filter((o) => o.trim());
   const canSave = question.trim() && topic.trim() && filledOptions.length >= MIN_OPTIONS && (multiAnswer ? correctIndices.length >= 1 : true);
 
   const selectedModule = modules.find((m) => m.id === moduleId) ?? null;
-  const partOptions = moduleId ? modulePartOptions(questions, moduleId) : [];
+  const partOptions = selectedModule ? modulePartOptions(questions, selectedModule) : [];
   const PART_SIZE = 10;
   const lastPart = partOptions[partOptions.length - 1];
   const lastPartFull = lastPart ? lastPart.count >= PART_SIZE : true;
@@ -95,11 +96,13 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
   // When the module changes (and we're not editing that same question), pick a sensible default part:
   // the last part if it still has room, otherwise a new part.
   useEffect(() => {
-    if (editQuestion && editQuestion.module_id === moduleId) {
+    const editModule = editQuestion ? findModuleForQuestion(modules, editQuestion) : null;
+    if (editQuestion && (editModule?.id ?? '') === moduleId) {
       setPartChoice(String(editQuestion.group_number));
       return;
     }
-    const opts = moduleId ? modulePartOptions(questions, moduleId) : [];
+    const mod = modules.find((m) => m.id === moduleId);
+    const opts = mod ? modulePartOptions(questions, mod) : [];
     const last = opts[opts.length - 1];
     setPartChoice(last && last.count < PART_SIZE ? String(last.group) : '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,18 +159,18 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
     try {
       const finalCorrectIndices = multiAnswer ? correctIndices : [correctIndex];
       const finalCorrectIndex = finalCorrectIndices[0] ?? 0;
-      const finalModuleId = moduleId || null;
       let groupNumber: number;
       if (partChoice) {
         groupNumber = parseInt(partChoice, 10);
-      } else if (finalModuleId) {
+      } else if (moduleId) {
         groupNumber = await db.nextGroupNumber();
       } else {
         groupNumber = editQuestion?.group_number ?? 1;
       }
+      // Registrar la parte en el módulo elegido (si es nueva)
+      if (moduleId) await db.addGroupToModule(moduleId, groupNumber);
       if (isEdit && editQuestion) {
         await db.updateQuestion(editQuestion.id, {
-          module_id: finalModuleId,
           group_number: groupNumber,
           question: question.trim(),
           question_image: questionImage,
@@ -182,7 +185,6 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
         });
       } else {
         await db.createQuestion({
-          module_id: finalModuleId,
           group_number: groupNumber,
           question: question.trim(),
           question_image: questionImage,

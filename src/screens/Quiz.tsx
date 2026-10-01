@@ -41,7 +41,7 @@ const OPTION_STYLES = [
 ];
 
 export function QuizScreen({ mode, topic, group, moduleId, onNavigate, onQuizComplete }: QuizScreenProps) {
-  const { questions, settings, state } = useApp();
+  const { questions, modules, settings, state } = useApp();
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -71,7 +71,8 @@ export function QuizScreen({ mode, topic, group, moduleId, onNavigate, onQuizCom
       return;
     }
     const count = (mode === 'all' || mode === 'module') ? questions.length : settings.defaultQuestionCount;
-    const built = buildQuiz(questions, mode, count, topic, group, moduleId);
+    const moduleGroups = moduleId ? modules.find((m) => m.id === moduleId)?.groups ?? [] : undefined;
+    const built = buildQuiz(questions, mode, count, topic, group, moduleGroups);
     if (built.length === 0) {
       setReady(false);
       return;

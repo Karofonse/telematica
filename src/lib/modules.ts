@@ -2,7 +2,7 @@ import {
   Folder, FolderOpen, Terminal, FileText, GraduationCap, Network, BookOpen, Brain, Cpu, Shield, Globe, Wifi,
   type LucideIcon,
 } from 'lucide-react';
-import type { Question } from './types';
+import type { Question, Module } from './types';
 import { masteryLevel } from './spaced-repetition';
 
 // ---- Colors available for a module (folder) ----
@@ -101,6 +101,7 @@ export interface PartStats {
   mastered: number;
   answered: number;
   correct: number;
+  progress: number;   // 0-100: avance hacia dominar todas (cada acierto consecutivo suma 1/3 por pregunta)
 }
 
 function statsFor(qs: Question[]) {
@@ -110,32 +111,43 @@ function statsFor(qs: Question[]) {
   }).length;
   const answered = qs.reduce((s, q) => s + q.total_count, 0);
   const correct = qs.reduce((s, q) => s + q.correct_count, 0);
-  return { total: qs.length, mastered, answered, correct };
+  const points = qs.reduce((s, q) => s + Math.min(q.consecutive_correct || 0, 3), 0);
+  const progress = qs.length > 0 ? Math.round((points / (qs.length * 3)) * 100) : 0;
+  return { total: qs.length, mastered, answered, correct, progress };
 }
 
-// Questions of a module, split by "part" (group_number), sorted.
-export function modulePartStats(questions: Question[], moduleId: string): PartStats[] {
-  const qs = questions.filter((q) => q.module_id === moduleId);
-  const groups = Array.from(new Set(qs.map((q) => q.group_number))).sort((a, b) => a - b);
-  return groups.map((g, i) => ({ group: g, index: i + 1, ...statsFor(qs.filter((q) => q.group_number === g)) }));
+// Questions of a module, split by "part" (group_number), sorted by the module's group order.
+export function modulePartStats(questions: Question[], module: Module): PartStats[] {
+  const groups = [...module.groups].sort((a, b) => a - b);
+  return groups.map((g, i) => ({ group: g, index: i + 1, ...statsFor(questions.filter((q) => q.group_number === g)) }));
 }
 
-export function moduleStats(questions: Question[], moduleId: string) {
-  return statsFor(questions.filter((q) => q.module_id === moduleId));
+export function moduleStats(questions: Question[], module: Module) {
+  return statsFor(moduleQuestions(questions, module));
 }
 
-export function moduleQuestions(questions: Question[], moduleId: string | null): Question[] {
-  return questions.filter((q) => q.module_id === moduleId);
+export function moduleQuestions(questions: Question[], module: Module): Question[] {
+  return questions.filter((q) => module.groups.includes(q.group_number));
+}
+
+export function findModuleForQuestion(modules: Module[], q: Question): Module | null {
+  return modules.find((m) => m.groups.includes(q.group_number)) ?? null;
+}
+
+// Questions whose group_number belongs to no module
+export function orphanQuestions(questions: Question[], modules: Module[]): Question[] {
+  const all = new Set(modules.flatMap((m) => m.groups));
+  return questions.filter((q) => !all.has(q.group_number));
 }
 
 // Parts (group numbers) that exist in a module, with their index label
-export function modulePartOptions(questions: Question[], moduleId: string): { group: number; label: string; count: number }[] {
-  return modulePartStats(questions, moduleId).map((p) => ({ group: p.group, label: `Parte ${p.index}`, count: p.total }));
+export function modulePartOptions(questions: Question[], module: Module): { group: number; label: string; count: number }[] {
+  return modulePartStats(questions, module).map((p) => ({ group: p.group, label: `Parte ${p.index}`, count: p.total }));
 }
 
-export function partLabel(questions: Question[], q: Question): string {
-  if (!q.module_id) return `Grupo ${q.group_number}`;
-  const parts = modulePartStats(questions, q.module_id);
-  const p = parts.find((x) => x.group === q.group_number);
-  return p ? `Parte ${p.index}` : `Grupo ${q.group_number}`;
+export function partLabel(modules: Module[], q: Question): string {
+  const m = findModuleForQuestion(modules, q);
+  if (!m) return `Grupo ${q.group_number}`;
+  const idx = [...m.groups].sort((a, b) => a - b).indexOf(q.group_number);
+  return idx >= 0 ? `Parte ${idx + 1}` : `Grupo ${q.group_number}`;
 }
