@@ -338,7 +338,7 @@ export function QuizScreen({ mode, topic, group, moduleId, onNavigate, onQuizCom
               <span className="px-2.5 py-1 rounded-lg bg-slate-700/50 text-slate-400 text-xs">{currentQ.qid}</span>
               {isMulti && <span className="px-2.5 py-1 rounded-lg bg-accent-500/20 text-accent-300 text-xs font-semibold flex items-center gap-1"><ListChecks className="w-3 h-3" /> Múltiple</span>}
             </div>
-            <h2 className="text-xl md:text-2xl font-display font-bold text-white leading-snug">{currentQ.question}</h2>
+            <h2 className="text-xl md:text-2xl font-display font-bold text-white leading-snug whitespace-pre-line">{currentQ.question}</h2>
             {currentQ.question_image && (
               <img src={currentQ.question_image} alt="pregunta" className="mt-4 max-h-56 rounded-xl border border-slate-700/50 mx-auto" />
             )}
