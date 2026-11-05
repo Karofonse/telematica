@@ -36,6 +36,9 @@ export interface Module {
   created_at: string;
   // Si es true, sus quizzes muestran las preguntas en orden fijo (por qid) en vez de al azar.
   ordered?: boolean;
+  // Si está definido, es un examen mixto: su quiz toma N preguntas al azar de los grupos que reúne,
+  // no muestra partes y no cuenta como "dueño" de esas preguntas (etiquetas, selectores).
+  quizLimit?: number;
 }
 
 export type QuizMode = 'smart' | 'errors' | 'topic' | 'all' | 'group' | 'module';

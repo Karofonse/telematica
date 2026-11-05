@@ -131,7 +131,7 @@ export function moduleQuestions(questions: Question[], module: Module): Question
 }
 
 export function findModuleForQuestion(modules: Module[], q: Question): Module | null {
-  return modules.find((m) => m.groups.includes(q.group_number)) ?? null;
+  return modules.find((m) => !m.quizLimit && m.groups.includes(q.group_number)) ?? null;
 }
 
 // Questions whose group_number belongs to no module

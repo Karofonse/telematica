@@ -233,7 +233,7 @@ export function AddEditQuestion({ editQuestion, onNavigate }: AddEditProps) {
             >
               Sin módulo
             </button>
-            {modules.map((m) => {
+            {modules.filter((m) => !m.quizLimit).map((m) => {
               const c = moduleColor(m.color);
               const Icon = moduleIcon(m.icon);
               const active = moduleId === m.id;

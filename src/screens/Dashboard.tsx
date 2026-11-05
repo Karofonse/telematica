@@ -69,11 +69,12 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
   const Icon = moduleIcon(module.icon);
   const total = parts.reduce((s, p) => s + p.total, 0);
   const mastered = parts.reduce((s, p) => s + p.mastered, 0);
+  const mixed = !!module.quizLimit;
 
   return (
     <div className="space-y-3">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className={`flex items-center gap-2 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/50 ${c.border} transition-all`}>
-        <button onClick={() => { playClick(); setOpen((v) => !v); }} className="flex-1 flex items-center justify-between text-left min-w-0">
+        <button onClick={() => { if (mixed) return; playClick(); setOpen((v) => !v); }} className={`flex-1 flex items-center justify-between text-left min-w-0 ${mixed ? 'cursor-default' : ''}`}>
           <div className="flex items-center gap-3 min-w-0">
             <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center shadow-lg shrink-0`}>
               <Icon className="w-5 h-5 text-white" />
@@ -81,14 +82,16 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
             <div className="min-w-0">
               <div className="font-display font-bold text-white truncate">{module.name}</div>
               <div className="text-xs text-slate-400 truncate">
-                {parts.length} {parts.length === 1 ? 'parte' : 'partes'} · {total} preguntas · {mastered} dominadas
+                {mixed ? 'Banco' : `${parts.length} ${parts.length === 1 ? 'parte' : 'partes'}`} · {total} preguntas · {mastered} dominadas
                 {module.description ? ` · ${module.description}` : ''}
               </div>
             </div>
           </div>
-          <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 ml-2">
-            <ChevronDown className="w-5 h-5 text-slate-400" />
-          </motion.div>
+          {!mixed && (
+            <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 ml-2">
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            </motion.div>
+          )}
         </button>
         <button onClick={(e) => { e.stopPropagation(); playClick(); onEdit(); }} title="Editar módulo" className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700/60 transition-colors shrink-0">
           <Pencil className="w-4 h-4" />
@@ -96,7 +99,7 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
       </motion.div>
 
       <AnimatePresence initial={false}>
-        {open && (
+        {open && !mixed && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
             <div className="flex items-center justify-between mb-3 px-1">
               <h3 className="font-display font-semibold text-white">Partes del módulo</h3>
@@ -138,7 +141,7 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
                 </motion.div>
                 <div>
                   <div className="font-display font-bold text-white text-lg">Quiz {module.name}</div>
-                  <div className="text-sm text-slate-300">Examen final con todas las {total} preguntas {module.ordered ? 'en orden' : 'revueltas'}</div>
+                  <div className="text-sm text-slate-300">{mixed ? `Examen de ${Math.min(module.quizLimit!, total)} preguntas al azar (de un banco de ${total})` : `Examen final con todas las ${total} preguntas ${module.ordered ? 'en orden' : 'revueltas'}`}</div>
                 </div>
               </div>
               <div className={`flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r ${c.gradient} text-white font-semibold text-sm shadow-lg`}>

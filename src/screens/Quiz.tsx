@@ -70,13 +70,13 @@ export function QuizScreen({ mode, topic, group, moduleId, onNavigate, onQuizCom
       setReady(false);
       return;
     }
-    const count = (mode === 'all' || mode === 'module') ? questions.length : settings.defaultQuestionCount;
     const moduleGroups = moduleId ? modules.find((m) => m.id === moduleId)?.groups ?? [] : undefined;
     const owningModule = moduleId
       ? modules.find((m) => m.id === moduleId)
       : group !== undefined
-        ? modules.find((m) => m.groups.includes(group))
+        ? modules.find((m) => !m.quizLimit && m.groups.includes(group))
         : undefined;
+    const count = mode === 'module' ? (owningModule?.quizLimit ?? questions.length) : mode === 'all' ? questions.length : settings.defaultQuestionCount;
     const built = buildQuiz(questions, mode, count, topic, group, moduleGroups, owningModule?.ordered);
     if (built.length === 0) {
       setReady(false);

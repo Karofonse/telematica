@@ -129,7 +129,7 @@ export function QuestionBank({ onNavigate, onEdit }: BankProps) {
                     >
                       Todos
                     </button>
-                    {modules.map((m) => (
+                    {modules.filter((m) => !m.quizLimit).map((m) => (
                       <button
                         key={m.id}
                         onClick={() => setModuleFilter(m.id)}
