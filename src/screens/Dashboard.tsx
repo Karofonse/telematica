@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ModuleForm } from '@/components/ModuleForm';
 import { levelProgress } from '@/lib/spaced-repetition';
-import { moduleColor, moduleIcon, modulePartStats, moduleQuestions, orphanQuestions, type PartStats } from '@/lib/modules';
+import { moduleColor, moduleIcon, modulePartStats, moduleQuestions, moduleStats, orphanQuestions, type PartStats } from '@/lib/modules';
 import type { Route } from '@/components/NavBar';
 import type { QuizMode, Module } from '@/lib/types';
 import { playClick } from '@/lib/sound';
@@ -54,16 +54,60 @@ function PartCard({ part, gradient, accentText, bar, delay, onStart }: { part: P
   );
 }
 
+interface SourceInfo {
+  module: Module;
+  total: number;
+  mastered: number;
+  answered: number;
+  correct: number;
+  progress: number;
+}
+
+// Carpeta incluida dentro de un examen mixto: muestra su avance y, al tocarla, inicia su examen.
+function SourceCard({ source, delay, onStart }: { source: SourceInfo; delay: number; onStart: () => void }) {
+  const c = moduleColor(source.module.color);
+  const Icon = moduleIcon(source.module.icon);
+  const allMastered = source.mastered === source.total && source.total > 0;
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} whileHover={{ scale: 1.02, y: -2 }}>
+      <Card className="p-5 cursor-pointer hover:border-brand-500/40 transition-all" onClick={() => { playClick(); onStart(); }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center shrink-0`}>
+              <Icon className="w-6 h-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-display font-bold text-white leading-tight">{source.module.name}</div>
+              <div className="text-xs text-slate-400">{source.total} preguntas</div>
+            </div>
+          </div>
+          {allMastered && <CheckCircle2 className="w-6 h-6 text-success-400 shrink-0" />}
+        </div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-slate-400">{source.mastered} / {source.total} dominadas</span>
+          <span className="text-xs font-semibold text-slate-300">{source.progress}% avance</span>
+        </div>
+        <ProgressBar value={source.progress} height="h-3" color={allMastered ? 'linear-gradient(90deg, #22c55e, #4ade80)' : c.bar} />
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs text-slate-500">{source.answered > 0 ? `${source.correct} correctas de ${source.answered}` : 'Sin intentar'}</span>
+          <span className={`text-xs font-semibold ${c.text} flex items-center gap-1`}><Zap className="w-3 h-3" /> Practicar</span>
+        </div>
+      </Card>
+    </motion.div>
+  );
+}
+
 interface ModuleFolderProps {
   module: Module;
   parts: PartStats[];
+  sources: SourceInfo[];
   delay: number;
   onStartQuiz: DashboardProps['onStartQuiz'];
   onEdit: () => void;
   onAddQuestion: () => void;
 }
 
-function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion }: ModuleFolderProps) {
+function ModuleFolder({ module, parts, sources, delay, onStartQuiz, onEdit, onAddQuestion }: ModuleFolderProps) {
   const [open, setOpen] = useState(false);
   const c = moduleColor(module.color);
   const Icon = moduleIcon(module.icon);
@@ -74,7 +118,7 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
   return (
     <div className="space-y-3">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className={`flex items-center gap-2 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/50 ${c.border} transition-all`}>
-        <button onClick={() => { if (mixed) return; playClick(); setOpen((v) => !v); }} className={`flex-1 flex items-center justify-between text-left min-w-0 ${mixed ? 'cursor-default' : ''}`}>
+        <button onClick={() => { playClick(); setOpen((v) => !v); }} className="flex-1 flex items-center justify-between text-left min-w-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center shadow-lg shrink-0`}>
               <Icon className="w-5 h-5 text-white" />
@@ -87,11 +131,9 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
               </div>
             </div>
           </div>
-          {!mixed && (
-            <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 ml-2">
-              <ChevronDown className="w-5 h-5 text-slate-400" />
-            </motion.div>
-          )}
+          <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 ml-2">
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          </motion.div>
         </button>
         <button onClick={(e) => { e.stopPropagation(); playClick(); onEdit(); }} title="Editar módulo" className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700/60 transition-colors shrink-0">
           <Pencil className="w-4 h-4" />
@@ -99,6 +141,19 @@ function ModuleFolder({ module, parts, delay, onStartQuiz, onEdit, onAddQuestion
       </motion.div>
 
       <AnimatePresence initial={false}>
+        {open && mixed && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+            <div className="mb-3 px-1">
+              <h3 className="font-display font-semibold text-white">Carpetas que incluye</h3>
+              <p className="text-xs text-slate-400">El examen toma preguntas al azar de todas ellas. Toca una para practicar solo esa carpeta.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-3">
+              {sources.map((src, i) => (
+                <SourceCard key={src.module.id} source={src} delay={0.05 + i * 0.04} onStart={() => onStartQuiz('module', undefined, src.module.id)} />
+              ))}
+            </div>
+          </motion.div>
+        )}
         {open && !mixed && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
             <div className="flex items-center justify-between mb-3 px-1">
@@ -163,6 +218,19 @@ export function Dashboard({ onNavigate, onStartQuiz }: DashboardProps) {
   const partsByModule = useMemo(() => {
     const map: Record<string, PartStats[]> = {};
     for (const m of modules) map[m.id] = modulePartStats(questions, m);
+    return map;
+  }, [questions, modules]);
+
+  // Para cada examen mixto: las carpetas normales cuyos grupos están todos dentro de los suyos.
+  const sourcesByModule = useMemo(() => {
+    const map: Record<string, SourceInfo[]> = {};
+    for (const m of modules) {
+      if (!m.quizLimit) continue;
+      const inside = new Set(m.groups);
+      map[m.id] = modules
+        .filter((x) => !x.quizLimit && x.groups.length > 0 && x.groups.every((g) => inside.has(g)))
+        .map((x) => ({ module: x, ...moduleStats(questions, x) }));
+    }
     return map;
   }, [questions, modules]);
 
@@ -271,6 +339,7 @@ export function Dashboard({ onNavigate, onStartQuiz }: DashboardProps) {
           key={m.id}
           module={m}
           parts={partsByModule[m.id] ?? []}
+          sources={sourcesByModule[m.id] ?? []}
           delay={0.2 + i * 0.05}
           onStartQuiz={onStartQuiz}
           onEdit={() => openEdit(m)}
