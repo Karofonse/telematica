@@ -4,11 +4,26 @@ import { DEFAULT_SETTINGS } from './types';
 import { updateSpacedRepetition, updateStreak, levelForXp } from './spaced-repetition';
 import { masteryLevel } from './spaced-repetition';
 
+// Supabase devuelve como máximo 1000 filas por consulta: se pide por páginas hasta agotar la tabla.
+// `build` debe devolver una consulta con orden estable (si hay empates, ordenar también por una columna única).
+const PAGE_SIZE = 1000;
+async function fetchAllPages<T>(build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await build(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return out;
+}
+
 // ---- Questions (shared bank) ----
 export async function fetchQuestions(): Promise<Question[]> {
-  const { data, error } = await supabase.from('questions').select('*').order('group_number', { ascending: true }).order('qid', { ascending: true });
-  if (error) throw error;
-  return (data as Question[]) ?? [];
+  return fetchAllPages<Question>((from, to) =>
+    supabase.from('questions').select('*').order('group_number', { ascending: true }).order('qid', { ascending: true }).range(from, to),
+  );
 }
 
 export async function createQuestion(input: {
@@ -24,8 +39,10 @@ export async function createQuestion(input: {
   difficulty: Difficulty;
   group_number?: number;
 }): Promise<Question> {
-  const { data: existing } = await supabase.from('questions').select('qid').order('created_at', { ascending: true });
-  const maxNum = (existing ?? []).reduce((max, row: any) => {
+  const existing = await fetchAllPages<{ qid: string }>((from, to) =>
+    supabase.from('questions').select('qid').order('qid', { ascending: true }).range(from, to),
+  );
+  const maxNum = existing.reduce((max, row) => {
     const m = /^Q(\d+)$/.exec(row.qid || '');
     return m ? Math.max(max, parseInt(m[1], 10)) : max;
   }, 0);
@@ -319,9 +336,9 @@ async function checkAchievements(state: AppState, xp: number, level: number, str
 
 // ---- Stats ----
 export async function fetchAllAnswers(): Promise<SessionAnswer[]> {
-  const { data, error } = await supabase.from('session_answers').select('*').order('answered_at', { ascending: true });
-  if (error) throw error;
-  return (data as SessionAnswer[]) ?? [];
+  return fetchAllPages<SessionAnswer>((from, to) =>
+    supabase.from('session_answers').select('*').order('answered_at', { ascending: true }).order('id', { ascending: true }).range(from, to),
+  );
 }
 
 export async function fetchAllSessions(): Promise<QuizSession[]> {
